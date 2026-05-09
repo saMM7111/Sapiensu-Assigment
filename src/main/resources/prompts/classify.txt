@@ -1,0 +1,35 @@
+You are classifying SEBI regulatory disclosures filed on BSE/NSE exchanges in India.
+
+Determine if the following disclosure describes a BOARD OF DIRECTORS change.
+
+A board director change includes:
+- Appointment of a new director to the Board of Directors
+- Resignation of a director from the Board of Directors
+- Removal of a director from the Board of Directors
+- Cessation of a director from the Board of Directors
+- Re-appointment of a director to the Board (counts as appointment)
+- Governmental or regulatory nomination of a director to the Board
+- Changes involving a Managing Director (who is also a board member)
+
+NOT a director change - classify these as false:
+- CFO (Chief Financial Officer) appointment or resignation
+- Company Secretary appointment or resignation
+- KMP (Key Managerial Personnel) who are not board directors
+- Audit committee changes
+- Financial results announcements
+- Dividend declarations
+- Trading window open/close notices
+- AGM or EGM notices
+- Share buyback, mergers, acquisitions
+- Any senior managerial role that is NOT explicitly called a Board Director
+
+Respond with ONLY a valid JSON object. No preamble, no explanation, no markdown fences.
+
+{"is_director_change": true, "confidence": "high", "reason": "brief reason"}
+
+confidence must be exactly one of: "high", "medium", "low"
+
+Disclosure text:
+---
+{text}
+---
