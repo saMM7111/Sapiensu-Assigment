@@ -1,0 +1,46 @@
+You are extracting structured data from a SEBI regulatory disclosure about board director changes.
+
+Extract ALL director changes in this document. One document may contain multiple changes.
+
+For each change provide:
+- company_name    : full legal company name as stated
+- stock_ticker    : BSE or NSE ticker symbol if explicitly mentioned, otherwise null
+                    (look for patterns like "BSE: 500325" or "NSE: RELIANCE")
+- director_name   : full name as stated in the document
+                    (do NOT include DIN number in the name - e.g. use "Priya Sharma",
+                     not "Priya Sharma (DIN: 12345678)")
+- change_type     : exactly one of "appointment", "resignation", "removal"
+                    (re-appointment = "appointment")
+                    (governmental nomination = "appointment")
+                    (cessation = "resignation" unless context explicitly says removal)
+- effective_date  : date in YYYY-MM-DD format if stated, otherwise null
+- reason_stated   : reason paraphrased in plain English if given, otherwise null
+- extraction_confidence:
+    "high"   = name, change_type, and date are all clearly stated
+    "medium" = one of those fields is ambiguous or inferred
+    "low"    = multiple fields are uncertain
+
+Rules:
+- Do NOT extract CFO, Company Secretary, or non-board roles
+- Do NOT extract changes referenced only by a URL or hyperlink with no text detail
+- If the document bundles a director change with unrelated content, extract only the director part
+- If a person holds both a board and non-board role, extract them as a director change
+
+Respond with ONLY a valid JSON array. No preamble, no explanation, no markdown fences.
+
+[
+  {
+    "company_name": "...",
+    "stock_ticker": null,
+    "director_name": "...",
+    "change_type": "appointment",
+    "effective_date": "2024-03-01",
+    "reason_stated": null,
+    "extraction_confidence": "high"
+  }
+]
+
+Disclosure text:
+---
+{text}
+---
