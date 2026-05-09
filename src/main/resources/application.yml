@@ -1,0 +1,27 @@
+llm:
+  provider: ${LLM_PROVIDER:gemini}
+
+  gemini:
+    api-key: ${GOOGLE_API_KEY:not-set}
+    model: gemini-2.0-flash
+    max-tokens: 1024
+    max-retries: 3
+    retry-delay-ms: 2000
+
+  anthropic:
+    api-key: ${ANTHROPIC_API_KEY:not-set}
+    model: claude-opus-4-6
+    max-tokens: 1024
+    max-retries: 3
+    retry-delay-ms: 2000
+
+processing:
+  input-dir: ./pdfs
+  output-dir: ./output
+  output-filename: results.json
+  concurrency: 3
+  text-truncation-chars: 12000
+
+logging:
+  level:
+    com.sapiensu.sebi: INFO
