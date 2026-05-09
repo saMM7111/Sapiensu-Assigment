@@ -1,0 +1,23 @@
+# Build output
+target/
+
+# Environment config (contains API keys — never commit this)
+.env
+
+# PDF input files (too large for git, and publicly available from BSE anyway)
+*.pdf
+
+# Pipeline output (generated at runtime)
+output/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
