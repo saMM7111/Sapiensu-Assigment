@@ -1,16 +1,23 @@
 llm:
-  provider: ${LLM_PROVIDER:gemini}
+  provider: ${LLM_PROVIDER:groq}
 
   gemini:
     api-key: ${GOOGLE_API_KEY:not-set}
     model: gemini-2.0-flash
-    max-tokens: 1024
+    max-tokens: 256
     max-retries: 3
-    retry-delay-ms: 15000
+    retry-delay-ms: 60000
 
   anthropic:
     api-key: ${ANTHROPIC_API_KEY:not-set}
-    model: claude-opus-4-6
+    model: claude-opus-4-5
+    max-tokens: 1024
+    max-retries: 5
+    retry-delay-ms: 2000
+
+  groq:
+    api-key: ${GROQ_API_KEY:not-set}
+    model: llama-3.3-70b-versatile
     max-tokens: 1024
     max-retries: 3
     retry-delay-ms: 2000
@@ -20,7 +27,7 @@ processing:
   output-dir: ./output
   output-filename: results.json
   concurrency: 1
-  text-truncation-chars: 12000
+  text-truncation-chars: 4000
 
 logging:
   level:

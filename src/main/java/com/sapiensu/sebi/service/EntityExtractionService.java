@@ -88,6 +88,29 @@ public class EntityExtractionService {
     }
 
     private String stripFences(String text) {
-        return text.replaceAll("(?s)```json\\s*|```", "").trim();
+        if (text == null) return null;
+
+        
+        String cleaned = text
+                .replaceAll("(?s)```json\\s*", "")
+                .replaceAll("(?s)```\\s*", "")
+                .trim();
+
+        
+        int arrayStart = cleaned.indexOf('[');
+        int arrayEnd = cleaned.lastIndexOf(']');
+        int objectStart = cleaned.indexOf('{');
+
+        if (arrayStart != -1 && arrayEnd != -1 &&
+                (objectStart == -1 || arrayStart < objectStart)) {
+            return cleaned.substring(arrayStart, arrayEnd + 1);
+        }
+
+       
+        if (arrayStart != -1 && arrayEnd != -1) {
+            return cleaned.substring(arrayStart, arrayEnd + 1);
+        }
+
+        return cleaned;
     }
 }

@@ -15,6 +15,8 @@ public class LlmConfig {
 
     private ProviderProps anthropic = new ProviderProps();
 
+    private ProviderProps groq = new ProviderProps();
+
     @Data
     public static class ProviderProps {
         private String apiKey;

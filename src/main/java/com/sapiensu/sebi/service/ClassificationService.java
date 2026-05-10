@@ -60,6 +60,20 @@ public class ClassificationService {
     }
 
     private String stripFences(String text) {
-        return text.replaceAll("(?s)```json\\s*|```", "").trim();
+        if (text == null) return null;
+
+    
+        String cleaned = text
+                .replaceAll("(?s)```json\\s*", "")
+                .replaceAll("(?s)```\\s*", "")
+                .trim();
+
+        int start = cleaned.indexOf('{');
+        int end = cleaned.lastIndexOf('}');
+        if (start != -1 && end != -1 && end > start) {
+            return cleaned.substring(start, end + 1);
+        }
+
+        return cleaned;
     }
 }

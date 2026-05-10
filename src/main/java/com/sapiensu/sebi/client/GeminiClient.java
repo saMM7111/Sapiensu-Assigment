@@ -42,9 +42,16 @@ public class GeminiClient implements LlmClient {
                 "contents", List.of(
                         Map.of("parts", List.of(Map.of("text", userPrompt)))
                 ),
+                "systemInstruction", Map.of(
+                        "parts", List.of(Map.of("text",
+                                "You are a JSON API. Respond with raw JSON only. " +
+                                        "No markdown, no code fences, no explanation. " +
+                                        "Output must be a single valid JSON object."))
+                ),
                 "generationConfig", Map.of(
                         "maxOutputTokens", props.getMaxTokens(),
-                        "temperature", 0.1
+                        "temperature", 0.1,
+                        "responseMimeType", "application/json"
                 )
         );
 
@@ -102,15 +109,44 @@ public class GeminiClient implements LlmClient {
             throw new RuntimeException("Gemini response has no candidates");
         }
 
+        // Warn if response was cut off by token limit
+        String finishReason = (String) candidates.get(0).get("finishReason");
+        if ("MAX_TOKENS".equals(finishReason)) {
+            log.warn("Gemini response truncated by MAX_TOKENS — consider increasing max-tokens in config");
+        }
+
         Map<String, Object> content =
                 (Map<String, Object>) candidates.get(0).get("content");
+        if (content == null) {
+            throw new RuntimeException("Gemini response missing content");
+        }
+
         List<Map<String, Object>> parts =
                 (List<Map<String, Object>>) content.get("parts");
         if (parts == null || parts.isEmpty()) {
             throw new RuntimeException("Gemini response missing content parts");
         }
 
-        return (String) parts.get(0).get("text");
+        String raw = (String) parts.get(0).get("text");
+        return stripMarkdown(raw);
+    }
+
+    private String stripMarkdown(String raw) {
+        if (raw == null) return null;
+
+        // Remove ```json ... ``` or ``` ... ``` fences
+        String cleaned = raw
+                .replaceAll("(?s)```json\\s*", "")
+                .replaceAll("(?s)```\\s*", "")
+                .trim();
+
+        // Extract just the JSON object in case there's surrounding text
+        int start = cleaned.indexOf('{');
+        int end = cleaned.lastIndexOf('}');
+        if (start != -1 && end != -1 && end > start) {
+            return cleaned.substring(start, end + 1);
+        }
+        return cleaned;
     }
 
     private void sleep(long ms) {
