@@ -83,6 +83,8 @@ mvn test
 
 ## Architectural Approach
 
+![img.png](img.png)
+
 The system is a linear five-stage pipeline where each stage is a stateless Spring service. Every PDF becomes a `DisclosureRecord` — a shared domain object that flows through the pipeline accumulating state at each stage. Failures at any stage are captured in the record itself rather than propagating as exceptions, so one broken document never stops the rest of the batch.
 
 **Stage 1 — Ingestion.** `PdfIngestionService` uses Apache PDFBox to extract raw text from each PDF. If extraction returns empty (scanned or image-only PDF), the record is immediately marked `FAILED` and skips all subsequent stages.
@@ -98,7 +100,7 @@ The system is a linear five-stage pipeline where each stage is a stateless Sprin
 The `LlmClient` interface decouples all business logic from the LLM provider. `GeminiClient`, `AnthropicClient`, and `GroqClient` each implement this interface and are activated via `@ConditionalOnProperty`. Switching providers requires changing one line in `.env`.
 
 ---
-![img.png](img.png)
+
 
 ## The Three Most Important Tradeoffs
 
