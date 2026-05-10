@@ -6,7 +6,7 @@ llm:
     model: gemini-2.0-flash
     max-tokens: 1024
     max-retries: 3
-    retry-delay-ms: 2000
+    retry-delay-ms: 15000
 
   anthropic:
     api-key: ${ANTHROPIC_API_KEY:not-set}
@@ -19,7 +19,7 @@ processing:
   input-dir: ./pdfs
   output-dir: ./output
   output-filename: results.json
-  concurrency: 3
+  concurrency: 1
   text-truncation-chars: 12000
 
 logging:
