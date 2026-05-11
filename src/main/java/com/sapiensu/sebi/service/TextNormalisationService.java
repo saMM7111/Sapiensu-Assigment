@@ -1,18 +1,22 @@
 package com.sapiensu.sebi.service;
 
-import com.sapiensu.sebi.config.ProcessingConfig;
 import com.sapiensu.sebi.model.DisclosureRecord;
 import com.sapiensu.sebi.model.ProcessingStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TextNormalisationService {
 
-    private final ProcessingConfig config;
+
+    private static final int CHUNK_SIZE    = 10_000;
+    private static final int CHUNK_OVERLAP = 500;
 
     public DisclosureRecord normalise(DisclosureRecord record) {
         if (record.getStatus() == ProcessingStatus.FAILED) {
@@ -32,15 +36,43 @@ public class TextNormalisationService {
                 .replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "")
                 .trim();
 
-        int limit = config.getTextTruncationChars();
-        if (cleaned.length() > limit) {
-            log.warn("Truncating {} from {} chars to {} chars",
-                    record.getSourceFilename(), cleaned.length(), limit);
-            cleaned = cleaned.substring(0, limit)
-                    + "\n[TRUNCATED - remaining content omitted]";
+        record.setNormalisedText(cleaned);
+
+        record.setChunks(chunkText(cleaned));
+        log.info("{}: {} chars split into {} chunk(s)",
+            record.getSourceFilename(), cleaned.length(), record.getChunks().size());
+
+        return record;
+    }
+
+    private List<String> chunkText(String text) {
+        List<String> chunks = new ArrayList<>();
+
+        if (text.length() <= CHUNK_SIZE) {
+            chunks.add(text);
+            return chunks;
         }
 
-        record.setNormalisedText(cleaned);
-        return record;
+        int start = 0;
+        while (start < text.length()) {
+            int end = Math.min(start + CHUNK_SIZE, text.length());
+
+            if (end < text.length()) {
+                int lastNewline = text.lastIndexOf('\n', end);
+                if (lastNewline > start + (CHUNK_SIZE / 2)) {
+                    end = lastNewline;
+                }
+            }
+
+            chunks.add(text.substring(start, end));
+
+            int nextStart = end - CHUNK_OVERLAP;
+            if (nextStart <= start) {         // ← safety guard against infinite loop
+                nextStart = start + CHUNK_SIZE;
+            }
+            start = nextStart;
+        }
+
+        return chunks;
     }
 }

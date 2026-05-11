@@ -23,8 +23,8 @@ llm:
     retry-delay-ms: 2000
 
 processing:
-  input-dir: ./pdfs
-  output-dir: ./output
+  input-dir: C:\Users\ASUS\Downloads\sapiensu_take_home_dataset\Sapiensu\pdfs
+  output-dir: C:\Users\ASUS\Downloads\sapiensu_take_home_dataset\Sapiensu\output
   output-filename: results.json
   concurrency: 1
   text-truncation-chars: 4000

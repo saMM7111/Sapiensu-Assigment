@@ -1,8 +1,17 @@
 # SEBI Disclosure Processor
 
-A production-structured pipeline that ingests SEBI regulatory PDF disclosures filed on BSE/NSE, identifies board director changes (appointments, resignations, removals), and extracts structured entity data into a single JSON output.
+A Spring Boot CLI application that processes 49 SEBI regulatory disclosure PDFs, classifies board director changes, and extracts structured entity data into a JSON report. Prompt engineering was done in Python/Jupyter notebooks before the prompts were frozen and embedded into the Java pipeline.
 
-Built in Java 21 + Spring Boot 3.3 with a pluggable LLM backend supporting three providers — Google Gemini, Anthropic Claude, and Groq — switchable via a single environment variable with no code changes.
+---
+
+## Table of Contents
+
+- [How to Run](#how-to-run)
+- [Architectural Approach](#architectural-approach)
+- [The Three Most Important Tradeoffs](#the-three-most-important-tradeoffs)
+- [Edge Cases Handled and Not Handled](#edge-cases-handled-and-not-handled)
+- [AI Services and External Libraries](#ai-services-and-external-libraries)
+- [Evaluation Note](#evaluation-note)
 
 ---
 
@@ -11,291 +20,211 @@ Built in Java 21 + Spring Boot 3.3 with a pluggable LLM backend supporting three
 ### Prerequisites
 
 - Java 21+
-- Maven 3.9+
-- An API key from any one of the three supported providers:
-    - **Google Gemini** (free) → [aistudio.google.com](https://aistudio.google.com)
-    - **Groq** (free tier) → [console.groq.com](https://console.groq.com)
-    - **Anthropic Claude** (paid) → [console.anthropic.com](https://console.anthropic.com)
+- Maven 3.8+
+- At least one LLM API key (Groq is the default and cheapest for testing)
 
-### Step 1 — Clone and configure
+### 1. Clone and enter the repo
 
 ```bash
-git clone https://github.com/saMM7111/Sapiensu-Assigment.git
-cd Sapiensu-Assigment
-cp .env.example .env
+git clone <repo-url>
+cd sapiensu_take_home_dataset/Sapiensu
 ```
 
-Open `.env` and set your chosen provider and key:
+### 2. Set your API key
 
 ```bash
-# Choose one: gemini | groq | anthropic
-LLM_PROVIDER=gemini
+# Linux / macOS
+export GROQ_API_KEY=your_key_here
 
-# Google Gemini (free — https://aistudio.google.com)
-GOOGLE_API_KEY=your_key_here
-
-# Groq (free tier — https://console.groq.com)
-GROQ_API_KEY=your_key_here
-
-# Anthropic Claude (paid — https://console.anthropic.com)
-ANTHROPIC_API_KEY=your_key_here
+# Windows (PowerShell)
+$env:GROQ_API_KEY="your_key_here"
 ```
 
-### Step 2 — Add input documents
+To use Anthropic or Gemini instead, set the corresponding key and update `llm.provider` in `application.yml`:
 
 ```bash
-mkdir -p pdfs
-# Copy all 49 disclosure PDFs into pdfs/
+export ANTHROPIC_API_KEY=your_key_here   # then set llm.provider: anthropic
+export GOOGLE_API_KEY=your_key_here      # then set llm.provider: gemini
 ```
 
-### Step 3 — Run
+### 3. Place PDFs in the input directory
+
+```
+Sapiensu/pdfs/    ← put all 49 PDFs here
+```
+
+### 4. Configure the input path
+
+Open `src/main/resources/application.yml` and set the absolute path to your `pdfs/` folder:
+
+```yaml
+processing:
+  input-dir: /absolute/path/to/your/pdfs
+  output-dir: ./output
+  output-filename: results.json
+  concurrency: 1
+  text-truncation-chars: 4000
+```
+
+> **Windows note:** Use forward slashes even on Windows (`C:/Users/you/path/pdfs`).
+> Do not use `./pdfs` as a relative path when running from IntelliJ — the JVM working
+> directory may not resolve it correctly, producing an `Input directory not found` error.
+> Fix: go to Run → Edit Configurations → set Working Directory to `$MODULE_WORKING_DIR$`.
+
+### 5. Build and run
 
 ```bash
+mvn clean package -DskipTests
 mvn spring-boot:run
 ```
 
-Output is written to:
-- `output/results.json` — structured extraction results matching the required schema
-- `output/processing_report.txt` — human-readable summary with per-document listing
+Or run `SebiProcessorApplication` directly from IntelliJ after setting the working directory above.
 
-### Step 4 — (Optional) Prompt development and output QA notebooks
+### 6. Output
 
-The `notebooks/` directory contains Python Jupyter notebooks that document the prompt engineering process and audit the pipeline output.
+Results are written to `./output/`:
+
+| File | Description |
+|---|---|
+| `results.json` | Structured extraction results for all director changes |
+| `processing_report.txt` | Human-readable per-document summary |
+
+### Running the Python QA notebooks (optional)
 
 ```bash
-cd notebooks
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 jupyter notebook
 ```
 
-- `01_prompt_development.ipynb` — prompt versions with inline notes on what each version got wrong and why it was changed
-- `02_output_qa.ipynb` — schema validation, confidence distribution, null field analysis, and manual spot-check of extractions against source PDFs
-
-### Running tests
-
-```bash
-mvn test
-```
+Open `notebooks/01_prompt_development.ipynb` to see how prompts were iterated, and `notebooks/02_output_qa.ipynb` to audit the pipeline output against the schema.
 
 ---
 
 ## Architectural Approach
 
-The system is a linear five-stage pipeline where each stage is a stateless Spring service. Every PDF becomes a `DisclosureRecord` — a shared domain object that flows through the pipeline accumulating state at each stage. Failures at any stage are captured in the record itself rather than propagating as exceptions, so one broken document never stops the rest of the batch.
+The system is a Spring Boot `CommandLineRunner` that processes a directory of PDFs through a five-stage sequential pipeline. `PipelineRunner` discovers all `.pdf` files, passes them to `ProcessingOrchestrator`, and writes the final output. Each PDF flows through five services in a fixed order:
 
-**Stage 1 — Ingestion.** `PdfIngestionService` uses Apache PDFBox to extract raw text from each PDF. If extraction returns empty (scanned or image-only PDF), the record is immediately marked `FAILED` and skips all subsequent stages.
+**PdfIngestionService** uses Apache PDFBox to extract raw text. Scanned image PDFs that produce no text are marked `FAILED` and short-circuit the rest of the pipeline immediately.
 
-**Stage 2 — Normalisation and chunking.** `TextNormalisationService` cleans whitespace and control characters, then splits the text into overlapping 10,000-character chunks with 500-character overlap at boundaries. Chunking handles documents that are hundreds of pages long with relevant content buried deep in the file.
+**TextNormalisationService** cleans whitespace anomalies common in BSE/NSE filings — non-breaking spaces, Windows line endings, control characters — then splits the text into overlapping 10,000-character chunks with a 500-character overlap. Chunking is newline-aware to avoid splitting mid-sentence.
 
-**Stage 3 — Rule-gated classification.** Before any chunk reaches the LLM, it passes through a `RuleEngine` with three sequential gates: a minimum keyword presence check, a strong-signal regex match against patterns like "resigned from the Board" and "cessation of directorship", and an exclusion check for CFO and Company Secretary signals. Only chunks that clear all three gates are sent to the LLM for verification. This reduces LLM calls by approximately 90% on large documents. Classification short-circuits on the first chunk that confirms a director change — remaining chunks are not processed.
+**ClassificationService** decides whether a document contains a board director change. Before touching the LLM, each chunk passes through a **RuleEngine** (pure regex, zero API cost) that applies three sequential gates: a minimum-presence check for director-related keywords; a strong-signal check against patterns like `resign(ed|ation) from the board` and `DIN:\d{8}`; and an exclusion-signal check for CFO and Company Secretary patterns. Chunks that fail the first two gates are skipped entirely. Chunks that hit an exclusion signal alongside a strong signal are routed to a stricter `classify_cautious.txt` prompt designed specifically for bundled disclosures. The classifier stops at the first chunk that returns `true`, so most documents require only one LLM call.
 
-**Stage 4 — Entity extraction.** `EntityExtractionService` runs only on documents classified as director changes, iterating across all chunks and deduplicating results by director name and change type. A cautious prompt variant is used when the rule engine detected an exclusion signal alongside a strong signal, making the LLM stricter about role disambiguation.
+**EntityExtractionService** runs only on documents the classifier confirms as director changes. It sends the full normalised text to the extraction prompt and receives a JSON array of all director changes in the document. Post-processing drops any extraction missing a `director_name` or `change_type`. `source_filename` is stamped onto each result in Java, not trusted from the LLM.
 
-**Stage 5 — Aggregation.** `OutputAggregatorService` collects all extractions across all documents and assembles the final `ProcessingOutput` object which is serialised to `results.json`.
+**OutputAggregatorService** collects all `DisclosureRecord` objects and flatmaps extraction arrays into a single `ProcessingOutput` with a `summary` block and a flat `extractions` list.
 
-The `LlmClient` interface decouples all business logic from the LLM provider. `GeminiClient`, `AnthropicClient`, and `GroqClient` each implement this interface and are activated via `@ConditionalOnProperty`. Switching providers requires changing one line in `.env`.
+The three LLM providers (Groq, Anthropic, Gemini) are wired via `@ConditionalOnProperty` — only the active provider's `LlmClient` bean is instantiated. Switching is a one-line change in `application.yml`. All prompts live in `src/main/resources/prompts/` and are loaded at startup via `@PostConstruct`, not hardcoded in Java. Prompt versions were iterated in `01_prompt_development.ipynb` using Gemini 2.0 Flash against 15 representative PDFs before the final versions were frozen and copied into the Java resources directory.
 
 ---
-![img.png](img.png)
 
 ## The Three Most Important Tradeoffs
 
-### 1. Two LLM calls per document (classify then extract) instead of one combined call
+### 1. Rule engine pre-filter before every LLM call
 
-**The decision:** Classification and extraction are separate LLM calls with separate prompts rather than one combined prompt that does both.
+**What I did:** A regex rule engine gates every chunk before any LLM call. A chunk must pass two positive gates (keyword presence, strong structural pattern) to reach the LLM at all. A third gate detects mixed-signal chunks and routes them to a stricter prompt.
 
-**Why:** A combined prompt is cheaper but harder to debug. When it produces wrong output you cannot tell whether the model misclassified the document or correctly classified it but failed to extract. Separating the stages makes each independently debuggable and independently tuneable — the classification prompt can be tightened without touching extraction and vice versa. The cost of the extra call is small relative to the diagnostic value.
+**Why:** LLM API calls are the bottleneck in both latency and cost, especially at free-tier rate limits. The rule engine eliminates the majority of chunks — financial results sections, trading window notices, AGM boilerplate — without spending a token. It also reduces false positives: the word "director" appears in many non-qualifying contexts (company history, committee names, hyperlink labels).
 
-**With more time:** Use structured output schemas (Anthropic tool use, Gemini response schema, or Groq's JSON mode) to enforce typed JSON responses at the API level rather than relying on prompt instructions and post-processing string cleanup. This would eliminate the markdown fence stripping and JSON parse error fallback paths entirely.
+**What I would do with more time:** The rule engine currently gates only classification. Extraction is run on the full normalised text. With more time I would pass only the rule-matched chunks to the extraction prompt too, reducing token usage and noise from surrounding irrelevant content. I would also add a scoring-based threshold rather than a binary PASS/SKIP decision, to allow borderline chunks to be batched and reviewed rather than silently dropped.
 
-### 2. Rule engine as a pre-filter gate rather than sending every chunk to the LLM
+### 2. Two-prompt classification (standard + cautious)
 
-**The decision:** Every chunk passes through a regex-based rule engine before being considered for an LLM call. The LLM verifies — it does not scan.
+**What I did:** When the rule engine detects a strong director signal and an exclusion signal in the same chunk, it routes to `classify_cautious.txt`, a stricter prompt whose entire focus is the distinction between board directors and functional-role executives (CFO, CS, divisional directors).
 
-**Why:** A 200-page annual report produces roughly 40 chunks. Without pre-filtering that is 40 LLM classification calls per document, which at 15 requests per minute on the free tier means over 40 minutes per large document. The rule engine reduces this to 3-5 calls per document in practice. The trade-off is that an unusual document that does not match any strong-signal pattern will be silently skipped rather than escalated. This is a deliberate precision bias — the system prefers a documented miss over analyst noise.
+**Why:** The standard prompt struggled with bundled disclosures where a CFO change and a director change appear in the same paragraph. A single prompt cannot give equal prominence to both "here is what counts" and "here is what does not count." Separating them into two purpose-built prompts lets each one be precise.
 
-**With more time:** Add a section-detection pass that identifies corporate governance and board report sections by heading text before chunking, so chunking starts from the relevant section rather than page one. This would further reduce LLM calls and prevent relevant content from being split across chunk boundaries.
+**What I would do with more time:** Convert both prompts to few-shot format with labelled examples drawn from the actual dataset. Instruction-following alone has a non-trivial failure rate on boundary cases; concrete positive and negative examples are significantly more reliable and require no model fine-tuning.
 
-### 3. Conservative exclusion of ambiguous roles
+### 3. Concurrency set to 1
 
-**The decision:** When a role is ambiguous — "Executive Director" of a business unit, "Group Director" without explicit board membership, "Director - Operations" — the system excludes rather than includes. Confidence is marked `low` on borderline cases rather than guessing.
+**What I did:** `concurrency: 1` in `application.yml`. The `ProcessingOrchestrator` uses a `ForkJoinPool` with a configurable parallelism level, but it is set to sequential for the submission.
 
-**Why:** The output is for analyst review. A false positive creates noise and erodes trust in the pipeline faster than a false negative. The prompts explicitly list exclusions and the cautious prompt variant is triggered automatically when the rule engine detects both a director signal and an exclusion signal in the same chunk.
+**Why:** Groq's free tier enforces strict request-per-minute limits. At concurrency > 1, the pipeline would hit 429 errors immediately and spend more time in retry backoff than it saves in parallelism. Sequential processing with linear backoff on retries is predictable and reliable at this scale.
 
-**With more time:** Surface ambiguous roles as a separate `requires_review` category in the output rather than silently dropping them. An analyst reviewing five flagged ambiguous cases is better than the system discarding them without trace.
-
----
-
-## Edge Cases Handled
-
-**Multiple director changes in one document.** The extraction prompt explicitly instructs the model to extract all changes and return a JSON array. Each change gets its own record in `results.json`. Deduplication by director name and change type prevents the same event being extracted twice when it appears near a chunk boundary.
-
-**Re-appointments.** Classified as `appointment` in both the rule engine keyword patterns and the extraction prompt. The prompt explicitly maps re-appointment to the appointment enum value.
-
-**Governmental and regulatory nominations.** Covered explicitly in both prompts and classified as `appointment`.
-
-**Director change bundled with unrelated content.** The extraction prompt instructs the model to extract only the director change and ignore surrounding content. Tested against documents that announce a director change alongside financial results in the same filing.
-
-**Missing effective dates and reasons.** Both fields are nullable. The extraction prompt instructs the model to return `null` rather than guessing. The `LocalDate` deserialiser accepts null without throwing.
-
-**Non-standard Indian date formats.** The extraction prompt explicitly instructs the model to convert formats like "1st March 2024" and "March 1, 2024" to ISO 8601 (YYYY-MM-DD). This was identified and fixed during prompt development, documented in `notebooks/01_prompt_development.ipynb`.
-
-**Long documents with relevant content deep in the file.** Handled by the chunking and rule-gated pipeline. Content on page 150 of a 200-page document is processed identically to content on page one.
-
-**LLM returning markdown fences around JSON.** Both the classification and extraction parsers strip ` ```json ` and ` ``` ` fences before attempting JSON parsing. This behaviour was observed during prompt development across all three LLM providers.
-
-**API rate limiting.** All three `LlmClient` implementations include exponential backoff retry with configurable delay and retry count. On rate limit responses the client waits `retryDelayMs × attempt` milliseconds before retrying up to `maxRetries` times.
-
-**Scanned or image-only PDFs.** PDFBox returns blank text for image-only PDFs. The ingestion service detects this, marks the record as `FAILED`, and includes the filename in `documents_that_failed_processing` in the output summary.
-
-**Cautious classification for ambiguous chunks.** When the rule engine detects both a strong director signal and an exclusion signal (CFO, Company Secretary) in the same chunk, it passes a `PASS_WITH_CAUTION` result to the classification service which uses a stricter prompt variant that explicitly guards against non-board role misclassification.
+**What I would do with more time:** Implement a token-bucket rate limiter so that concurrency can be increased up to the API's actual request budget rather than defaulting to 1. For 50,000 documents, sequential processing is not viable — the right architecture is an async queue (e.g. Spring Batch or a message queue like SQS) where workers consume jobs at a rate the API can sustain, with dead-letter handling for failed documents.
 
 ---
 
-## Edge Cases Not Handled
+## Edge Cases Handled and Not Handled
 
-**Director changes referenced only by hyperlink.** Some disclosures contain a sentence like "as disclosed vide our letter dated [hyperlink]" with no textual detail about the director or the nature of the change. The system has no text to extract from and will not produce a result for these. Documented as a known limitation.
+### Handled
 
-**Non-English disclosures.** Disclosures filed in regional languages are not handled. PDFBox may extract garbled text for some encodings. These will typically fail the rule engine's keyword gates and be classified as non-director-change documents silently.
+**CFO and Company Secretary misclassification.** The classification prompt explicitly lists CFO, CS, and KMP roles as non-qualifying, with examples. The cautious prompt is invoked for mixed-signal chunks. The rule engine's exclusion patterns catch the most common cases before any LLM call.
 
-**Directors identified only by designation without a name.** Rare but present in some governmental nomination filings where the disclosure says "a nominee director of [regulatory body]" without naming the individual. The extraction will produce a low-confidence result with a null or partial director name.
+**Multi-change documents.** The extraction prompt explicitly instructs the model to extract ALL director changes and return them as a JSON array. `OutputAggregatorService` flatmaps extraction arrays, so a single PDF can contribute multiple rows to `results.json`.
 
-**Retroactive corrections and amendments.** A filing that corrects a previously filed director change is treated as a new independent change. The system has no awareness of prior filings or filing history.
+**Re-appointment language.** Both the rule engine (pattern: `re-?appoint(ed|ment)? as ... director`) and the extraction prompt (`re-appointment = "appointment"`) handle this mapping explicitly.
 
-**Image-embedded tables within otherwise text-extractable PDFs.** Some BSE/NSE filings embed board composition tables as images within a text PDF. PDFBox skips these images. If the director change is stated only within such a table, it will be missed.
+**Cessation language.** `cessation` maps to `resignation` in extraction unless removal is explicit. The rule engine includes `cessation of directorship` and `cessation of office ... director` as strong signal patterns.
+
+**DIN number as a hard classification signal.** A `DIN: \d{8}` regex is a near-certain indicator of a board director change, since Director Identification Numbers are exclusive to board-level appointees in India. The rule engine treats this as a strong signal regardless of surrounding context.
+
+**Postal ballot and regularisation language.** Patterns for `appointment and regularisation of ... director` are included in the rule engine's strong-signal list, covering AGM-style filings where language differs from routine appointment disclosures.
+
+**Date format normalisation.** The extraction prompt explicitly instructs the model to convert `1st March 2024` and `March 1, 2024` to `YYYY-MM-DD`. `ExtractionResult` uses `LocalDate` with Jackson JSR-310, so malformed dates throw a deserialisation exception rather than silently producing garbage.
+
+**Scanned / image PDFs.** PDFBox returns blank or near-blank text for scanned documents. `PdfIngestionService` catches the blank-text case, marks the record `FAILED`, and adds the filename to `documents_that_failed_processing` in the summary.
+
+**JSON fence stripping.** Despite prompting for raw JSON, LLMs occasionally wrap responses in markdown code fences. Both `ClassificationService` and `EntityExtractionService` strip ` ```json ` and ` ``` ` fences and extract the JSON object or array by bracket position as a secondary fallback.
+
+**DIN number bleeding into director name.** The extraction prompt explicitly prohibits including the DIN in `director_name` — e.g. extract `Priya Sharma`, not `Priya Sharma (DIN: 12345678)`.
+
+### Not Handled
+
+**Scanned PDFs requiring OCR.** PDFBox cannot extract text from image-only PDFs. These will always be marked `FAILED`. A production system would need a fallback OCR pass (e.g. Tesseract, AWS Textract, or Google Document AI).
+
+**Disclosures referenced by hyperlink only.** Some SEBI filings contain a URL to the actual disclosure with no inline text. The system has no mechanism to follow links and fetch the referenced document. The extraction prompt flags this case as non-extractable but takes no action.
+
+**Chunked extraction boundary splits.** If a director's name appears in one chunk and their effective date appears in a later chunk that the rule engine skips, the extraction from either chunk alone will have null fields. The current design sends the full normalised text to extraction (not just matched chunks), which mitigates this, but `text-truncation-chars: 4000` limits very long documents.
+
+**Confidence score calibration.** `extraction_confidence` is self-reported by the LLM against qualitative instructions. It is useful for prioritising manual review but is not a calibrated probability and should not be treated as one.
+
+**Ambiguous cessation vs. removal.** The system defaults cessation to `resignation` unless removal is explicitly stated. This may mislabel director removals following shareholder votes or legal proceedings.
+
+**Non-English content.** Some BSE/NSE filings include Hindi sections. The LLM generally handles these, but this is untested and not guaranteed to produce correct structured output.
+
+**Multiple directors with identical names.** No deduplication logic exists beyond the `director_name` null-check. If the same name appears in different contexts (historical reference and current change), the extraction may produce duplicate records.
 
 ---
 
 ## AI Services and External Libraries
 
-### Google Gemini API (`LLM_PROVIDER=gemini`)
+### LLM Providers
 
-Default provider. Gemini 2.0 Flash is free with no credit card required, supports up to 15 requests per minute on the free tier, and has a 1M token context window. It returns clean JSON reliably when instructed and handles Indian regulatory language well. Chosen as the default because it allows anyone to clone and run this project at zero cost.
+**Groq — LLaMA 3.3-70B Versatile (default, `llm.provider: groq`)**
+Used as the primary LLM because Groq's free tier is fast and the rate limits are sufficient for a 49-document batch. LLaMA 3.3-70B follows structured JSON instructions reliably and has adequate knowledge of Indian regulatory terminology (DIN, BSE/NSE, SEBI Regulation 30).
 
-### Groq API (`LLM_PROVIDER=groq`)
+**Anthropic Claude claude-opus-4-5 (optional, `llm.provider: anthropic`)**
+Available as a higher-quality alternative. Claude is more conservative with JSON format compliance and less likely to add prose around the JSON response, reducing fence-stripping edge cases. Higher cost than Groq at scale.
 
-Free tier with significantly faster inference than Gemini or Anthropic, enabled by Groq's custom LPU hardware. Hosts open-source models including Llama 3.3 70B and Gemma 2 9B. Uses the OpenAI-compatible API format, making the client implementation straightforward. Best choice when processing speed matters more than model quality, or when the Gemini free tier rate limits become a bottleneck.
+**Google Gemini 2.0 Flash (optional, `llm.provider: gemini`)**
+Used in the Jupyter notebooks for prompt development because its free API tier requires no credit card, making rapid iteration cheap. The `responseMimeType: application/json` Gemini parameter enforces JSON output at the API level. Note: `max-tokens: 256` in the current config is too low for complex disclosures and should be raised to at least 1024 if using Gemini in production.
 
-### Anthropic Claude (`LLM_PROVIDER=anthropic`)
+### Java Libraries
 
-Paid provider using the `claude-sonnet-4-6` model by default (configurable to `claude-opus-4-6` for highest quality). Produces the best results on ambiguous documents — particularly filings with unusual role designations or non-standard language. The higher cost is justified in production scenarios where accuracy on edge cases is critical. Not recommended for initial runs due to cost; use for final validation if needed.
+**Apache PDFBox 3.0.2**
+The industry-standard Java PDF text extractor. Handles the majority of BSE/NSE filing formats. Chosen over iText because PDFBox is Apache-licensed with no AGPL restrictions. Its hard limitation is image-only PDFs, which require separate OCR tooling.
 
-All three providers implement the `LlmClient` interface. No business logic is aware of which provider is active. Switching requires changing `LLM_PROVIDER` in `.env` and nothing else.
+**Spring Boot 3.3 / spring-web (no embedded Tomcat)**
+Spring Boot provides `CommandLineRunner` (CLI entrypoint), `@ConfigurationProperties` (type-safe YAML binding), and `@ConditionalOnProperty` (provider switching). `spring-web` is included without `spring-boot-starter-web` specifically to avoid starting an embedded Tomcat — this is a batch processor, not a web application.
 
-### Apache PDFBox 3.0.2
+**Jackson Databind + jackson-datatype-jsr310**
+Jackson deserialises LLM JSON responses into typed model objects (`ExtractionResult`, `Confidence` enum, `ChangeType` enum) and serialises the final output file. The JSR-310 module is required for `LocalDate` serialisation, which also serves as a date-format validator at deserialisation time.
 
-PDF text extraction. Chosen over Apache Tika because PDFBox is purpose-built for PDF and gives more control over text ordering and whitespace handling in the multi-column layouts common in BSE/NSE filings. Tika is the better choice when the input file type is unknown — here it is always PDF.
+**Lombok**
+Eliminates boilerplate (`@Data`, `@Builder`, `@Slf4j`, `@RequiredArgsConstructor`) on model and service classes. Excluded from the final JAR via the Maven plugin configuration.
 
-### Jackson with JavaTimeModule
+### Python Libraries (Notebooks only)
 
-JSON serialisation for the output schema. `JavaTimeModule` handles `LocalDate` serialisation to ISO 8601 strings. Enums (`ChangeType`, `Confidence`) use `@JsonValue` and `@JsonCreator` to enforce exact string values in both serialisation directions, preventing the model from persisting hallucinated values into the output.
+**pdfplumber** — PDF text extraction for the prompt development notebook.
 
-### Spring Boot 3.3
+**google-generativeai** — Gemini Python SDK used during prompt iteration.
 
-Provides dependency injection, typed configuration binding via `@ConfigurationProperties`, provider switching via `@ConditionalOnProperty`, and the `CommandLineRunner` entry point. The pipeline stages are explicitly designed so they could be extracted into queue workers with minimal structural changes for production scale.
-
-### Lombok
-
-Reduces boilerplate on domain model classes. The domain models are plain data carriers — Lombok keeps them readable without obscuring the fields that matter.
-
----
-
-## Project Structure
-
-```
-Sapiensu-Assigment/
-├── src/main/java/com/sapiensu/sebi/
-│   ├── SebiProcessorApplication.java
-│   ├── client/
-│   │   ├── LlmClient.java               ← interface, all services depend on this
-│   │   ├── GeminiClient.java            ← active when LLM_PROVIDER=gemini
-│   │   ├── GroqClient.java              ← active when LLM_PROVIDER=groq
-│   │   └── AnthropicClient.java         ← active when LLM_PROVIDER=anthropic
-│   ├── config/
-│   │   ├── LlmConfig.java
-│   │   └── ProcessingConfig.java
-│   ├── model/
-│   │   ├── DisclosureRecord.java
-│   │   ├── ExtractionResult.java
-│   │   ├── ProcessingOutput.java
-│   │   ├── ChangeType.java
-│   │   ├── Confidence.java
-│   │   └── ProcessingStatus.java
-│   ├── rules/
-│   │   ├── ChunkRule.java
-│   │   ├── RuleEngine.java
-│   │   └── RuleResult.java
-│   ├── service/
-│   │   ├── PdfIngestionService.java
-│   │   ├── TextNormalisationService.java
-│   │   ├── ClassificationService.java
-│   │   ├── EntityExtractionService.java
-│   │   └── OutputAggregatorService.java
-│   ├── orchestrator/
-│   │   └── ProcessingOrchestrator.java
-│   └── runner/
-│       └── PipelineRunner.java
-├── src/main/resources/
-│   ├── application.yml
-│   └── prompts/
-│       ├── classify.txt
-│       ├── classify_cautious.txt
-│       └── extract.txt
-├── src/test/java/com/sapiensu/sebi/
-│   ├── service/
-│   │   ├── ClassificationServiceTest.java
-│   │   └── EntityExtractionServiceTest.java
-│   └── orchestrator/
-│       └── ProcessingOrchestratorTest.java
-├── notebooks/
-│   ├── 01_prompt_development.ipynb      ← prompt iteration history
-│   ├── 02_output_qa.ipynb               ← output audit against source PDFs
-│   └── requirements.txt
-├── pdfs/                                ← input PDFs (gitignored)
-├── output/                              ← results written here (gitignored)
-├── .env.example
-├── .gitignore
-└── README.md
-```
+**pandas** — DataFrame-based schema validation, null field analysis, and confidence distribution reporting in `02_output_qa.ipynb`.
 
 ---
 
-## Output Schema
+## Evaluation Note
 
-```json
-{
-  "extractions": [
-    {
-      "source_filename": "string",
-      "company_name": "string",
-      "stock_ticker": "string or null",
-      "director_name": "string",
-      "change_type": "appointment | resignation | removal",
-      "effective_date": "YYYY-MM-DD or null",
-      "reason_stated": "string or null",
-      "extraction_confidence": "high | medium | low"
-    }
-  ],
-  "summary": {
-    "total_documents_processed": 49,
-    "director_change_documents_identified": 0,
-    "total_director_changes_extracted": 0,
-    "documents_that_failed_processing": []
-  }
-}
-```
-
----
-
-## How This Maps to Production Surveillance
-
-This pipeline is a self-contained version of the disclosure surveillance pattern. The classification and extraction stages are stateless and document-scoped, which means they scale horizontally without architectural changes. In a production surveillance system:
-
-- Documents arrive via webhooks or scheduled scrapers rather than a local folder. The `PipelineRunner` becomes a queue consumer pulling from SQS, RabbitMQ, or Kafka.
-- The `results.json` becomes rows in a Postgres table with `created_at` timestamps, enabling time-series risk queries across the deal lifecycle.
-- The rule engine's signal patterns are versioned and tunable per regulatory source. SEBI filings use different language patterns than SEC 8-K filings or Companies House announcements — the rule engine is the layer where that source-specific knowledge lives.
-- The same two-stage LLM pattern (cheap classify, expensive extract) applies to any document-based regulatory source, not just SEBI director changes.
-- Classification confidence thresholds become configurable per client based on their risk tolerance. A PE fund doing active due diligence may want recall-biased settings. A passive portfolio monitor may prefer the precision-biased defaults used here.
-- The three-provider LLM architecture (Gemini for cost, Groq for speed, Anthropic for quality) maps directly to the operational modes of a surveillance product — bulk backfill processing uses Groq, real-time alerts use Gemini, high-stakes investigation mode uses Anthropic.
+The classification and extraction prompts were developed iteratively against a representative sample of 15 PDFs spanning four categories — obvious director changes, obvious non-changes, CFO-only disclosures, and multi-change documents — using the process documented in `01_prompt_development.ipynb`. The final prompts correctly handled all 15 test cases. The full pipeline was run against all 49 PDFs and the output was validated by `02_output_qa.ipynb`, which checks schema correctness, date format compliance, null field rates, confidence distributions, and spots multi-extraction documents. That said, I did not have a ground-truth labelled dataset, so there is no precision or recall figure to report — the QA is structural and spot-check-based, not metric-based. My honest assessment is that classification accuracy is high on clear-cut cases (the rule engine alone filters most irrelevant chunks before the LLM is involved, and the LLM handles the remainder reliably on well-formed documents), but I have lower confidence on boundary cases: documents where a CFO change and a director change appear in the same sentence, documents using indirect language like "regularisation of appointment," and filings where the effective date is expressed as a board meeting date rather than an explicit handover date. The extraction is likely accurate on `director_name` and `change_type` for confirmed director-change documents, moderate on `effective_date` (date normalisation is instructed but not always followed perfectly by the model), and low on `stock_ticker` (most SEBI filings do not include the ticker symbol inline, so the majority of ticker fields will legitimately be null). I would trust this output as a first-pass dataset for human review, but not as a production-quality source of truth without a labelled evaluation set.

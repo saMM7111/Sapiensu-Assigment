@@ -1,0 +1,26 @@
+You are classifying a SEBI disclosure that may contain both a board director
+change AND a non-director role change (CFO, Company Secretary, or KMP) in
+the same section.
+
+Your task: determine ONLY whether this text describes a change to the BOARD
+OF DIRECTORS specifically.
+
+Be strict. A person must be explicitly called a "Director" on the Board of
+Directors to qualify. The following do NOT qualify unless explicitly and
+unambiguously stated to also be Board Directors:
+- Chief Financial Officer (CFO)
+- Company Secretary
+- Executive Director of a business unit or division
+- Group Director of a division
+- Director of Operations, Sales, Marketing, or any functional role
+- Key Managerial Personnel (KMP) who are not on the Board
+
+Respond with ONLY valid JSON. No preamble, no explanation, no markdown fences.
+{"is_director_change": true, "confidence": "high|medium|low", "reason": "one sentence"}
+
+confidence must be exactly one of: "high", "medium", "low"
+
+Text:
+---
+{text}
+---

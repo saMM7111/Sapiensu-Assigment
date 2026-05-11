@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sapiensu.sebi.client.LlmClient;
 import com.sapiensu.sebi.model.DisclosureRecord;
 import com.sapiensu.sebi.model.ProcessingStatus;
+import com.sapiensu.sebi.rules.RuleEngine;
+import com.sapiensu.sebi.rules.RuleResult;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -21,41 +24,80 @@ public class ClassificationService {
 
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
+    private final RuleEngine ruleEngine;
 
     @Value("classpath:prompts/classify.txt")
     private Resource classifyPromptResource;
 
+    @Value("classpath:prompts/classify_cautious.txt")
+    private Resource classifyPromptCautiousResource;
+
     private String classifyPromptTemplate;
+    private String classifyPromptCautious;
 
     @PostConstruct
-    public void loadPrompt() throws Exception {
+    public void loadPrompts() throws Exception {
         classifyPromptTemplate = classifyPromptResource
+                .getContentAsString(StandardCharsets.UTF_8);
+        classifyPromptCautious = classifyPromptCautiousResource
                 .getContentAsString(StandardCharsets.UTF_8);
     }
 
     public DisclosureRecord classify(DisclosureRecord record) {
-        if (record.getStatus() == ProcessingStatus.FAILED) {
+        if (record.getStatus() == ProcessingStatus.FAILED) return record;
+
+        if (record.getChunks() == null || record.getChunks().isEmpty()) {
+            log.warn("{}: no chunks available, skipping classification",
+                record.getSourceFilename());
+            record.setDirectorChange(false);
             return record;
         }
 
-        String prompt = classifyPromptTemplate
-                .replace("{text}", record.getNormalisedText());
+        List<String> chunks = record.getChunks();
+        int total    = chunks.size();
+        int skipped  = 0;
+        int llmCalls = 0;
 
-        try {
-            String response = llmClient.complete(prompt);
-            String cleaned = stripFences(response);
-            JsonNode json = objectMapper.readTree(cleaned);
+        for (int i = 0; i < total; i++) {
+            String chunk = chunks.get(i);
 
-            boolean isDirectorChange = json.get("is_director_change").asBoolean();
-            record.setDirectorChange(isDirectorChange);
-            log.info("Classified {} => director_change={}",
-                    record.getSourceFilename(), isDirectorChange);
-        } catch (Exception e) {
-            log.warn("Classification parse failed for {}, defaulting to false: {}",
-                    record.getSourceFilename(), e.getMessage());
-            record.setDirectorChange(false);
+            RuleResult gate = ruleEngine.evaluate(chunk, i + 1, total);
+
+            if (!gate.shouldProcess()) {
+                skipped++;
+                continue;
+            }
+
+            String prompt = gate.hasCaution()
+                ? classifyPromptCautious.replace("{text}", chunk)
+                : classifyPromptTemplate.replace("{text}", chunk);
+
+            llmCalls++;
+
+            try {
+                String response = llmClient.complete(prompt);
+                String cleaned  = stripFences(response);
+                JsonNode json   = objectMapper.readTree(cleaned);
+
+                if (json.get("is_director_change").asBoolean()) {
+                    log.info("{}: director change confirmed in chunk {}/{}. " +
+                        "Skipped {}/{} chunks via rules. LLM calls used: {}",
+                        record.getSourceFilename(), i + 1, total,
+                        skipped, total, llmCalls);
+                    record.setDirectorChange(true);
+                    return record;
+                }
+
+            } catch (Exception e) {
+                log.warn("Classification failed on chunk {}/{} of {}: {}",
+                    i + 1, total, record.getSourceFilename(), e.getMessage());
+            }
         }
 
+        log.info("{}: no director change found. Total chunks: {}, " +
+            "Skipped by rules: {}, LLM calls made: {}",
+            record.getSourceFilename(), total, skipped, llmCalls);
+        record.setDirectorChange(false);
         return record;
     }
 

@@ -1,0 +1,390 @@
+SEBI Disclosure Processing Report
+=================================
+
+Total documents processed:          49
+Director change docs identified:    27
+Total director changes extracted:   46
+Failed documents:                   2
+
+Failed Documents:
+  - doc_010.pdf
+  - doc_050.pdf
+
+Per-Document Extractions:
+------------------------------------------------------------
+  File: doc_001.pdf
+    Company:    Ramsons Projects Limited
+    Director:   Rakesh Arora
+    Change:     APPOINTMENT
+    Date:       2022-09-29
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_002.pdf
+    Company:    Solar Industries India Limited
+    Director:   Kirit Ramesh Kamdar
+    Change:     APPOINTMENT
+    Date:       2026-04-01
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_003.pdf
+    Company:    Solar Industries India Limited
+    Director:   Viswanathan Lakshmanan
+    Change:     APPOINTMENT
+    Date:       2025-10-18
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_004.pdf
+    Company:    Pennar Industries Limited
+    Director:   V S Parthasarathy
+    Change:     APPOINTMENT
+    Date:       2024-02-09
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_005.pdf
+    Company:    XTGLOBAL INFOTECH LIMITED
+    Director:   Srinivas Pendyala
+    Change:     APPOINTMENT
+    Date:       2021-09-30
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_006.pdf
+    Company:    Prima Plastics Limited
+    Director:   Daxa J. Baxi
+    Change:     APPOINTMENT
+    Date:       2023-05-29
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_007.pdf
+    Company:    BGIL Films & Technologies Ltd.
+    Director:   Prem Kumar Sitaram Mahato
+    Change:     APPOINTMENT
+    Date:       2025-09-08
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_008.pdf
+    Company:    VADILAL ENTERPRISES LIMITED
+    Director:   Rajesh R. Gandhi
+    Change:     APPOINTMENT
+    Date:       2023-08-09
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_008.pdf
+    Company:    VADILAL ENTERPRISES LIMITED
+    Director:   Devanshu L. Gandhi
+    Change:     APPOINTMENT
+    Date:       2023-08-09
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_009.pdf
+    Company:    Goa Carbon Limited
+    Director:   Subodh Nadkarni
+    Change:     APPOINTMENT
+    Date:       2026-01-07
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_011.pdf
+    Company:    Tracxn Technologies Limited
+    Director:   Nishant Verman
+    Change:     RESIGNATION
+    Date:       2026-03-31
+    Reason:     Resigned as Independent Director
+    Confidence: HIGH
+
+  File: doc_012.pdf
+    Company:    SEPC Limited
+    Director:   N.K. Suryanarayanan
+    Change:     RESIGNATION
+    Date:       2025-09-30
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_013.pdf
+    Company:    Aditya Spinners Limited
+    Director:   Siva Kumar Ramaswami
+    Change:     RESIGNATION
+    Date:       2025-05-30
+    Reason:     emerging personal reasons
+    Confidence: HIGH
+
+  File: doc_014.pdf
+    Company:    Kennametal India Limited
+    Director:   Rajashekar Venkat
+    Change:     RESIGNATION
+    Date:       2025-04-30
+    Reason:     to pursue an opportunity outside of Kennametal
+    Confidence: HIGH
+
+  File: doc_016.pdf
+    Company:    Arvind Limited
+    Director:   Susheel Kaul
+    Change:     RESIGNATION
+    Date:       2026-03-09
+    Reason:     personal reasons
+    Confidence: HIGH
+
+  File: doc_017.pdf
+    Company:    Gujarat Themis Biosyn Ltd.
+    Director:   Rakesh Kumar Sharma
+    Change:     RESIGNATION
+    Date:       2025-06-30
+    Reason:     personal reasons
+    Confidence: HIGH
+
+  File: doc_017.pdf
+    Company:    Gujarat Themis Biosyn Ltd.
+    Director:   Nikhil Vasantbhai Gajjar
+    Change:     RESIGNATION
+    Date:       2025-06-30
+    Reason:     preoccupation and other professional commitments
+    Confidence: HIGH
+
+  File: doc_017.pdf
+    Company:    Gujarat Themis Biosyn Ltd.
+    Director:   Arunkumar Udaybhai Dave
+    Change:     APPOINTMENT
+    Date:       2025-06-30
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_017.pdf
+    Company:    Gujarat Themis Biosyn Ltd.
+    Director:   Jatinkumar Pravinchandra Shah
+    Change:     APPOINTMENT
+    Date:       2025-06-30
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_017.pdf
+    Company:    Gujarat Themis Biosyn Ltd.
+    Director:   Rekha Rani Naraniwal
+    Change:     APPOINTMENT
+    Date:       2025-06-30
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_018.pdf
+    Company:    OLA ELECTRIC MOBILITY LIMITED
+    Director:   Navalur Dattatreya Singh Shashank
+    Change:     APPOINTMENT
+    Date:       2025-12-05
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_018.pdf
+    Company:    OLA ELECTRIC MOBILITY LIMITED
+    Director:   Ananth Sankaranarayanan
+    Change:     RESIGNATION
+    Date:       2025-12-05
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_019.pdf
+    Company:    PCBL Chemical Limited
+    Director:   Nilesh Koul
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_020.pdf
+    Company:    Gujarat Narmada Valley Fertilizers & Chemicals Limited
+    Director:   Dr. T. Natarajan
+    Change:     REMOVAL
+    Date:       null
+    Reason:     withdrawal of nomination by the Government of Gujarat
+    Confidence: MEDIUM
+
+  File: doc_020.pdf
+    Company:    Gujarat Narmada Valley Fertilizers & Chemicals Limited
+    Director:   Shri Rajkumar Beniwal
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     nomination by the Government of Gujarat
+    Confidence: MEDIUM
+
+  File: doc_021.pdf
+    Company:    GFL Limited
+    Director:   Ishita Jain
+    Change:     APPOINTMENT
+    Date:       2026-03-27
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_021.pdf
+    Company:    GFL Limited
+    Director:   Pavan Kumar Jain
+    Change:     APPOINTMENT
+    Date:       2026-03-27
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_022.pdf
+    Company:    APLAB LIMITED
+    Director:   Amrita P. Deodhar
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_022.pdf
+    Company:    APLAB LIMITED
+    Director:   Sanjay N. Mehta
+    Change:     APPOINTMENT
+    Date:       2025-09-01
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_022.pdf
+    Company:    APLAB LIMITED
+    Director:   Amrita P. Deodhar
+    Change:     APPOINTMENT
+    Date:       2025-09-01
+    Reason:     completed 80 years of age
+    Confidence: HIGH
+
+  File: doc_023.pdf
+    Company:    Ashima Limited
+    Director:   Chintan N. Parikh
+    Change:     REAPPOINTMENT
+    Date:       2026-02-07
+    Reason:     Reappointed as Managing Director for 3 years
+    Confidence: HIGH
+
+  File: doc_024.pdf
+    Company:    Agri-Tech
+    Director:   Jeevanlata Kagliwal
+    Change:     REAPPOINTMENT
+    Date:       null
+    Reason:     Reappointed as Director by rotation
+    Confidence: HIGH
+
+  File: doc_024.pdf
+    Company:    Agri-Tech
+    Director:   Akash Nandkishor Kagliwal
+    Change:     APPOINTMENT
+    Date:       2023-05-09
+    Reason:     Appointed as Managing Director for five years
+    Confidence: HIGH
+
+  File: doc_025.pdf
+    Company:    Titan Intech Limited
+    Director:   Kosaraju Raj Nagesh
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_025.pdf
+    Company:    Titan Intech Limited
+    Director:   Nikhil Putta
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_025.pdf
+    Company:    Titan Intech Limited
+    Director:   Ko Su Piow
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_028.pdf
+    Company:    Genus Prime Infra Limited
+    Director:   Anu Sharma
+    Change:     APPOINTMENT
+    Date:       2024-04-01
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_028.pdf
+    Company:    Genus Prime Infra Limited
+    Director:   Dharam Chand Agarwal
+    Change:     RESIGNATION
+    Date:       2024-03-31
+    Reason:     completion of second consecutive term
+    Confidence: HIGH
+
+  File: doc_028.pdf
+    Company:    Genus Prime Infra Limited
+    Director:   Kamal Kant Agarwal
+    Change:     RESIGNATION
+    Date:       2024-03-31
+    Reason:     completion of second consecutive term
+    Confidence: HIGH
+
+  File: doc_029.pdf
+    Company:    ONE GLOBAL SERVICE PROVIDER LTD
+    Director:   Sanjay Upadhaya
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_029.pdf
+    Company:    ONE GLOBAL SERVICE PROVIDER LTD
+    Director:   Pooja Khakhi
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_029.pdf
+    Company:    ONE GLOBAL SERVICE PROVIDER LTD
+    Director:   Hemang Harshadbhai Shah
+    Change:     APPOINTMENT
+    Date:       null
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_030.pdf
+    Company:    MSTC LIMITED
+    Director:   Ramesh Kumar Soni
+    Change:     APPOINTMENT
+    Date:       2025-04-15
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_030.pdf
+    Company:    MSTC LIMITED
+    Director:   Alka Chandrakar
+    Change:     APPOINTMENT
+    Date:       2025-05-15
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_030.pdf
+    Company:    MSTC LIMITED
+    Director:   Chandra Shekhar Baghel
+    Change:     APPOINTMENT
+    Date:       2025-05-15
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_049.pdf
+    Company:    Kennametal India Limited
+    Director:   Faisal Saad Hamadi
+    Change:     APPOINTMENT
+    Date:       2025-04-02
+    Reason:     null
+    Confidence: HIGH
+
+  File: doc_049.pdf
+    Company:    Kennametal India Limited
+    Director:   Vijaykrishnan Venkatesan
+    Change:     APPOINTMENT
+    Date:       2025-09-17
+    Reason:     null
+    Confidence: HIGH
+

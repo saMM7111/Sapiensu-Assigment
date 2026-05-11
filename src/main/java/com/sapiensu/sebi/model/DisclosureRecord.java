@@ -19,6 +19,8 @@ public class DisclosureRecord {
 
     private String normalisedText;
 
+    private List<String> chunks;
+
     private boolean directorChange;
 
     private List<ExtractionResult> extractions;
